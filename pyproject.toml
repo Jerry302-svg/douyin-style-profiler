@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "douyin-style-profiler"
+version = "0.1.0"
+description = "Benchmark Douyin profile style analyzer"
+requires-python = ">=3.10"
+dependencies = [
+  "playwright>=1.45.0",
+]
+
+[project.scripts]
+douyin-style-profiler = "douyin_style_profiler.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

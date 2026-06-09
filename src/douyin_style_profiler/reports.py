@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict
+
+from .schemas import StyleProfile
+
+
+SECTION_TITLES = [
+    ("hook", "1. 开头钩子"),
+    ("content_structure", "2. 内容结构"),
+    ("expression_style", "3. 表达方式"),
+    ("cta", "4. 互动引导"),
+    ("topic_selection", "5. 选题方式"),
+    ("overall_tone", "6. 整体语气"),
+    ("emotion_analysis", "7. 情绪曲线"),
+    ("user_psychology", "8. 用户心理"),
+    ("signature_mark", "9. 标志性表达"),
+    ("generation_tips", "10. 生成建议"),
+]
+
+
+def render_markdown_report(profile: StyleProfile) -> str:
+    lines = [
+        f"# {profile.nickname} 风格分析报告",
+        "",
+        f"- 来源链接：{profile.source_url or '未提供'}",
+        f"- 样本数量：{profile.sample_count}",
+        f"- 生成时间：{profile.created_at}",
+        f"- 一句话总结：{profile.summary}",
+        "",
+    ]
+    data = profile.to_dict()
+    for key, title in SECTION_TITLES:
+        lines.extend([f"## {title}", ""])
+        value = data.get(key)
+        lines.extend(_render_value(value))
+        lines.append("")
+    lines.extend([
+        "## 可复制风格提示词",
+        "",
+        render_style_prompt(profile),
+        "",
+    ])
+    return "\n".join(lines).strip() + "\n"
+
+
+def render_style_prompt(profile: StyleProfile) -> str:
+    return (
+        f"请参考“{profile.nickname}”的表达风格：{profile.summary}\n"
+        "只学习结构、节奏、钩子、口语密度和互动方式，不复制原文、事实、身份或具体案例。\n"
+        f"开头方式：{_compact(profile.hook)}\n"
+        f"内容结构：{_compact(profile.content_structure)}\n"
+        f"表达方式：{_compact(profile.expression_style)}\n"
+        f"互动引导：{_compact(profile.cta)}\n"
+        f"生成建议：{'；'.join(profile.generation_tips[:8])}"
+    )
+
+
+def write_outputs(profile: StyleProfile, output_dir: str | Path) -> Dict[str, str]:
+    import json
+
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    profile_json = target / "style_profile.json"
+    report_md = target / "style_report.md"
+    prompt_txt = target / "style_prompt.txt"
+    profile_json.write_text(json.dumps(profile.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    report_md.write_text(render_markdown_report(profile), encoding="utf-8")
+    prompt_txt.write_text(render_style_prompt(profile), encoding="utf-8")
+    return {
+        "style_profile": str(profile_json),
+        "style_report": str(report_md),
+        "style_prompt": str(prompt_txt),
+    }
+
+
+def _render_value(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        return [f"- **{key}**：{_compact(item)}" for key, item in value.items()]
+    if isinstance(value, list):
+        return [f"- {item}" for item in value]
+    return [str(value)]
+
+
+def _compact(value: Any) -> str:
+    if isinstance(value, dict):
+        return "；".join(f"{key}: {_compact(item)}" for key, item in value.items())
+    if isinstance(value, list):
+        return "、".join(str(item) for item in value)
+    return str(value)
