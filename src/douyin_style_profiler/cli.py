@@ -7,6 +7,8 @@ from pathlib import Path
 from .analyzer import analyze_video_items
 from .collector import collect_profile_topn, load_video_items, save_douyin_login_state, save_video_items
 from .llm import LLMClient, load_dotenv
+from .media import collect_and_download_profile, transcribe_video_items
+from .pipeline import run_profile_pipeline, write_transcripts
 from .reports import write_outputs
 
 
@@ -26,6 +28,18 @@ def main() -> None:
     collect.add_argument("--output", default="outputs/profile_videos.json", help="采集结果保存路径")
     collect.add_argument("--headed", action="store_true", help="显示浏览器，方便排查")
 
+    download = subparsers.add_parser("download", help="复用楼大壮下载层下载 TopN 视频并抽取音频")
+    download.add_argument("--profile-url", required=True, help="抖音博主主页分享链接")
+    download.add_argument("--top-n", type=int, default=10, help="下载数量，默认 Top10")
+    download.add_argument("--state", default="runtime/douyin_storage_state.json", help="Cookie 路径")
+    download.add_argument("--output-dir", default="outputs/profile_media", help="输出目录")
+    download.add_argument("--keep-video", action="store_true", help="保留下载的视频文件；默认只保证音频用于转写")
+    download.add_argument("--max-concurrency", type=int, default=3, help="下载并发数，最多 5")
+
+    transcribe = subparsers.add_parser("transcribe", help="自动转写已下载的音频")
+    transcribe.add_argument("--input", required=True, help="download/collect 产生的 JSON")
+    transcribe.add_argument("--output", default="outputs/transcripts.json", help="转写结果保存路径")
+
     analyze = subparsers.add_parser("analyze", help="根据采集结果或转写稿生成风格档案")
     analyze.add_argument("--input", required=True, help="JSON 文件：可以是 video item 列表，也可以是转写字符串列表")
     analyze.add_argument("--nickname", default="对标账号", help="账号昵称")
@@ -41,6 +55,9 @@ def main() -> None:
     run.add_argument("--output-dir", default="outputs/style_profile", help="输出目录")
     run.add_argument("--headed", action="store_true", help="显示浏览器，方便排查")
     run.add_argument("--llm", action="store_true", help="使用 OpenAI/MiniMax 生成精细风格档案")
+    run.add_argument("--metadata-only", action="store_true", help="只采集主页卡片文本，不下载视频、不转写")
+    run.add_argument("--keep-video", action="store_true", help="完整流程中保留下载的视频文件")
+    run.add_argument("--max-concurrency", type=int, default=3, help="下载并发数，最多 5")
 
     args = parser.parse_args()
     if args.command == "login":
@@ -59,6 +76,31 @@ def main() -> None:
         path = save_video_items(items, args.output)
         print(f"已保存 {len(items)} 条视频卡片：{path}")
         return
+    if args.command == "download":
+        result = asyncio.run(
+            collect_and_download_profile(
+                profile_url=args.profile_url,
+                output_dir=args.output_dir,
+                top_n=args.top_n,
+                storage_state_path=args.state,
+                keep_video=args.keep_video,
+                max_concurrency=args.max_concurrency,
+            )
+        )
+        if result.get("error"):
+            raise SystemExit(f"下载失败：{result['error']}")
+        items = result.get("items") or []
+        path = save_video_items(items, Path(args.output_dir) / "profile_videos.json")
+        ok_count = len([item for item in items if not item.metadata.get("error")])
+        print(f"已下载/抽音频 {ok_count}/{len(items)} 条：{path}")
+        return
+    if args.command == "transcribe":
+        items = load_video_items(args.input)
+        items = transcribe_video_items(items)
+        path = write_transcripts(items, args.output)
+        ok_count = len([item for item in items if item.metadata.get("transcribe_status") == "success"])
+        print(f"已转写 {ok_count}/{len(items)} 条：{path}")
+        return
     if args.command == "analyze":
         items = load_video_items(args.input)
         llm_client = LLMClient() if args.llm else None
@@ -67,19 +109,22 @@ def main() -> None:
         _print_outputs(outputs)
         return
     if args.command == "run":
-        items = asyncio.run(
-            collect_profile_topn(
-                args.profile_url,
+        llm_client = LLMClient() if args.llm else None
+        outputs = asyncio.run(
+            run_profile_pipeline(
+                profile_url=args.profile_url,
+                nickname=args.nickname,
                 top_n=args.top_n,
                 storage_state_path=args.state,
+                output_dir=args.output_dir,
+                llm_client=llm_client,
                 headless=not args.headed,
+                download=not args.metadata_only,
+                transcribe=not args.metadata_only,
+                keep_video=args.keep_video,
+                max_concurrency=args.max_concurrency,
             )
         )
-        output_dir = Path(args.output_dir)
-        save_video_items(items, output_dir / "profile_videos.json")
-        llm_client = LLMClient() if args.llm else None
-        profile = analyze_video_items(items, nickname=args.nickname, source_url=args.profile_url, llm_client=llm_client)
-        outputs = write_outputs(profile, output_dir)
         _print_outputs(outputs)
         return
 
@@ -92,4 +137,3 @@ def _print_outputs(outputs: dict) -> None:
 
 if __name__ == "__main__":
     main()
-

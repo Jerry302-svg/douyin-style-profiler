@@ -32,8 +32,9 @@ if (!(Test-Path $GetPip)) {
 & $PythonExe $GetPip
 & $PythonExe -m pip install --upgrade pip
 & $PythonExe -m pip install -r (Join-Path $Root "requirements.txt")
+& $PythonExe -m pip install -r (Join-Path $Root "requirements-transcribe.txt")
 & $PythonExe -m pip install -e $Root
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $Runtime "ms-playwright"
 & $PythonExe -m playwright install chromium
 
-Write-Host "Done. Use run_windows.bat to run the tool."
+Write-Host "Done. Use run_windows.bat to run the tool. FunASR models will be downloaded into models/ on first transcription."
