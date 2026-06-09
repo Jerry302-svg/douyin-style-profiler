@@ -12,6 +12,25 @@ from .pipeline import run_profile_pipeline, write_transcripts
 from .reports import write_outputs
 
 
+def _add_llm_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--llm", action="store_true", help="使用用户配置的 LLM 生成精细风格档案")
+    parser.add_argument("--llm-provider", default="", help="LLM Provider，例如 openai/deepseek/qwen/kimi/zhipu/minimax/anthropic/gemini/openai-compatible")
+    parser.add_argument("--llm-model", default="", help="模型名称，由用户按自己的账号填写")
+    parser.add_argument("--llm-api-key", default="", help="API Key；更推荐写入 .env 的 LLM_API_KEY")
+    parser.add_argument("--llm-base-url", default="", help="自定义 API 地址；openai-compatible 或私有网关需要填写")
+
+
+def _build_llm_client(args: argparse.Namespace) -> LLMClient | None:
+    if not getattr(args, "llm", False):
+        return None
+    return LLMClient(
+        provider=getattr(args, "llm_provider", "") or "",
+        model=getattr(args, "llm_model", "") or "",
+        api_key=getattr(args, "llm_api_key", "") or "",
+        base_url=getattr(args, "llm_base_url", "") or "",
+    )
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="douyin-style-profiler", description="对标账号风格分析工具")
@@ -45,7 +64,7 @@ def main() -> None:
     analyze.add_argument("--nickname", default="对标账号", help="账号昵称")
     analyze.add_argument("--source-url", default="", help="账号主页链接")
     analyze.add_argument("--output-dir", default="outputs/style_profile", help="输出目录")
-    analyze.add_argument("--llm", action="store_true", help="使用 OpenAI/MiniMax 生成精细风格档案")
+    _add_llm_args(analyze)
 
     run = subparsers.add_parser("run", help="从主页链接采集并生成风格档案")
     run.add_argument("--profile-url", required=True, help="抖音博主主页分享链接")
@@ -54,7 +73,7 @@ def main() -> None:
     run.add_argument("--state", default="runtime/douyin_storage_state.json", help="Cookie 路径")
     run.add_argument("--output-dir", default="outputs/style_profile", help="输出目录")
     run.add_argument("--headed", action="store_true", help="显示浏览器，方便排查")
-    run.add_argument("--llm", action="store_true", help="使用 OpenAI/MiniMax 生成精细风格档案")
+    _add_llm_args(run)
     run.add_argument("--metadata-only", action="store_true", help="只采集主页卡片文本，不下载视频、不转写")
     run.add_argument("--keep-video", action="store_true", help="完整流程中保留下载的视频文件")
     run.add_argument("--max-concurrency", type=int, default=3, help="下载并发数，最多 5")
@@ -103,13 +122,13 @@ def main() -> None:
         return
     if args.command == "analyze":
         items = load_video_items(args.input)
-        llm_client = LLMClient() if args.llm else None
+        llm_client = _build_llm_client(args)
         profile = analyze_video_items(items, nickname=args.nickname, source_url=args.source_url, llm_client=llm_client)
         outputs = write_outputs(profile, args.output_dir)
         _print_outputs(outputs)
         return
     if args.command == "run":
-        llm_client = LLMClient() if args.llm else None
+        llm_client = _build_llm_client(args)
         outputs = asyncio.run(
             run_profile_pipeline(
                 profile_url=args.profile_url,

@@ -32,6 +32,17 @@ class ProjectPackagingTest(unittest.TestCase):
         self.assertNotIn("runtime/", readme)
         self.assertNotIn("requirements-transcribe.txt", readme)
 
+    def test_readme_does_not_claim_builtin_llm_priority_or_keys(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn("LLM_PROVIDER", readme)
+        self.assertIn("LLM_MODEL", readme)
+        self.assertIn("LLM_API_KEY", readme)
+        self.assertIn("openai-compatible", readme)
+        self.assertNotIn("OpenAI 优先", readme)
+        self.assertNotIn("MiniMax 作为备用", readme)
+        self.assertNotIn("gpt-5.5", readme)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -61,18 +61,49 @@ PYTHONPATH=src python -m douyin_style_profiler --help
 
 ## 配置 LLM
 
-`.env` 中可以配置：
+LLM 的模型和 API key 由使用者自己提供，项目不内置任何 key，也不绑定某一个平台。
+
+`.env` 中填写：
 
 ```text
-OPENAI_API_KEY=
-MINIMAX_API_KEY=
+LLM_PROVIDER=
+LLM_MODEL=
+LLM_API_KEY=
+LLM_BASE_URL=
 ```
 
-规则：
+支持的 `LLM_PROVIDER`：
 
-- 有 `OPENAI_API_KEY` 时优先使用 OpenAI `gpt-5.5`。
-- 没有 OpenAI key 时使用 MiniMax。
-- 两个 key 都没有时，仍可用 deterministic fallback 生成基础风格档案，方便测试流程。
+| Provider | 说明 |
+| --- | --- |
+| `openai` | OpenAI 官方 API |
+| `deepseek` | DeepSeek |
+| `qwen` | 通义千问 DashScope OpenAI-compatible 模式 |
+| `kimi` / `moonshot` | Moonshot / Kimi |
+| `zhipu` | 智谱 BigModel |
+| `minimax` | MiniMax |
+| `anthropic` | Claude Messages API |
+| `gemini` | Gemini GenerateContent API |
+| `openai-compatible` | 任意兼容 `/v1/chat/completions` 的平台或私有网关 |
+
+示例：
+
+```text
+LLM_PROVIDER=deepseek
+LLM_MODEL=deepseek-chat
+LLM_API_KEY=你的key
+```
+
+自定义 OpenAI-compatible 网关：
+
+```text
+LLM_PROVIDER=openai-compatible
+LLM_MODEL=你的模型名
+LLM_API_KEY=你的key
+LLM_BASE_URL=https://api.example.com
+```
+
+如果不传 `--llm`，工具会使用 deterministic fallback 生成基础风格档案，方便先测试流程。
 
 ## 使用
 
@@ -110,6 +141,18 @@ python -m douyin_style_profiler transcribe --input outputs/profile_media/profile
 
 ```bash
 python -m douyin_style_profiler analyze --input examples/transcripts.json --nickname "示例账号" --llm
+```
+
+也可以不改 `.env`，直接在命令行指定 LLM：
+
+```bash
+python -m douyin_style_profiler analyze \
+  --input examples/transcripts.json \
+  --nickname "示例账号" \
+  --llm \
+  --llm-provider deepseek \
+  --llm-model deepseek-chat \
+  --llm-api-key "你的key"
 ```
 
 如果只想采集主页卡片文本，不下载视频、不转写：
