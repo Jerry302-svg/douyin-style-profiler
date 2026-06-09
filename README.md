@@ -1,13 +1,15 @@
 # Douyin Style Profiler
 
-对标账号风格分析工具。输入抖音博主主页分享链接，按楼大壮项目同款流程采集 Top10 高赞视频、下载视频、抽取音频、自动转写，再生成结构化风格档案。也可以输入已有转写稿直接分析。
+对标账号风格分析工具。输入抖音博主主页分享链接，按楼大壮项目同款流程采集 Top10 高赞视频、下载视频、抽取音频、自动转写，再生成结构化风格档案。
+
+这个项目默认面向会配置 Python 环境的 GitHub 用户。项目不内置 Python、浏览器运行时或虚拟环境；所有依赖都写在 `requirements.txt` 里。
 
 ## 能做什么
 
 - 用 Playwright 打开抖音并保存登录 Cookie。
 - 复用楼大壮项目下载层：`DouyinAPIClient + X-Bogus + Top10 + 视频下载 + ffmpeg 抽音频`。
-- 用 FunASR 自动转写音频，模型默认下载到项目目录的 `models/`。
-- 根据视频标题/转写稿生成 10 个风格模块。
+- 用 FunASR 自动转写音频，模型默认下载到 `models/`。
+- 根据转写稿生成 10 个风格模块。
 - 输出：
   - `profile_videos.json`
   - `transcripts.json`
@@ -28,27 +30,68 @@
 9. 标志性表达
 10. 生成建议
 
-## 快速开始：开发者模式
+## 环境要求
+
+- Python 3.10+
+- ffmpeg
+- 能正常访问抖音网页
+
+ffmpeg 需要能在命令行里直接执行：
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+ffmpeg -version
+```
+
+## 安装
+
+```bash
+git clone <your-repo-url>
+cd douyin-style-profiler
 pip install -r requirements.txt
-pip install -r requirements-transcribe.txt
+pip install -e .
 python -m playwright install chromium
 cp .env.example .env
 ```
 
-保存 Cookie：
+如果你不想安装成可编辑包，也可以直接用：
+
+```bash
+PYTHONPATH=src python -m douyin_style_profiler --help
+```
+
+## 配置 LLM
+
+`.env` 中可以配置：
+
+```text
+OPENAI_API_KEY=
+MINIMAX_API_KEY=
+```
+
+规则：
+
+- 有 `OPENAI_API_KEY` 时优先使用 OpenAI `gpt-5.5`。
+- 没有 OpenAI key 时使用 MiniMax。
+- 两个 key 都没有时，仍可用 deterministic fallback 生成基础风格档案，方便测试流程。
+
+## 使用
+
+第一步，保存抖音 Cookie：
 
 ```bash
 python -m douyin_style_profiler login
 ```
 
-完整流程：采集 Top10、下载、抽音频、转写、生成风格档案：
+第二步，跑完整流程：
 
 ```bash
 python -m douyin_style_profiler run --profile-url "https://v.douyin.com/xxxx/" --top-n 10 --llm
+```
+
+这个命令会执行：
+
+```text
+主页链接 -> Top10 视频采集 -> 视频下载 -> 音频抽取 -> FunASR 转写 -> 风格分析 -> 输出报告
 ```
 
 如果只想排查下载层：
@@ -63,51 +106,49 @@ python -m douyin_style_profiler download --profile-url "https://v.douyin.com/xxx
 python -m douyin_style_profiler transcribe --input outputs/profile_media/profile_videos.json --output outputs/profile_media/transcripts.json
 ```
 
-如果只想用旧的轻量模式，不下载视频、不转写：
+如果已经有转写稿，只做风格分析：
+
+```bash
+python -m douyin_style_profiler analyze --input examples/transcripts.json --nickname "示例账号" --llm
+```
+
+如果只想采集主页卡片文本，不下载视频、不转写：
 
 ```bash
 python -m douyin_style_profiler run --profile-url "https://v.douyin.com/xxxx/" --metadata-only
 ```
 
-也可以直接用已有转写稿跑：
+## 输出目录
 
-```bash
-python -m douyin_style_profiler analyze --input examples/transcripts.json --nickname "示例账号"
-```
-
-## 快速开始：Windows 无 Python 环境
-
-第一步，双击或运行：
-
-```powershell
-tools\bootstrap_windows.ps1
-```
-
-它会把 Python embeddable、依赖和 Playwright Chromium 安装到项目目录的 `runtime/` 里。
-
-之后运行：
-
-```bat
-run_windows.bat analyze --input examples\transcripts.json --nickname 示例账号
-```
-
-或：
-
-```bat
-run_windows.bat login
-run_windows.bat run --profile-url "https://v.douyin.com/xxxx/" --top-n 10 --llm
-```
-
-第一次转写时，FunASR 会把模型下载到 `models\modelscope\`。这一步会比较久，但之后会复用本地模型。
-
-## 文件目录
+默认输出在 `outputs/`：
 
 ```text
-runtime/                 项目内 Python、Playwright 浏览器和 ffmpeg
-models/                  FunASR/ModelScope 模型缓存
-outputs/                 采集、下载、转写和风格报告输出
-src/douyin/              楼大壮项目同款抖音下载 vendor 层
-src/douyin_style_profiler 工具本体
+outputs/
+  profile_videos.json
+  transcripts.json
+  style_profile.json
+  style_report.md
+  style_prompt.txt
+```
+
+FunASR 首次转写时会下载模型，默认缓存到 `models/modelscope/`。模型文件不建议提交到 GitHub。
+
+## 项目结构
+
+```text
+src/douyin/                  楼大壮项目同款抖音下载 vendor 层
+src/douyin_style_profiler/   工具本体
+examples/                    示例转写输入
+tests/                       单元测试
+models/                      本地模型缓存目录
+outputs/                     运行输出目录
+```
+
+## 测试
+
+```bash
+python -m unittest discover -s tests -v
+python -m compileall -q src tests
 ```
 
 ## 合规说明

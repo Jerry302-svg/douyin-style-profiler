@@ -12,10 +12,6 @@ dependencies = [
   "aiohttp>=3.9.0",
   "requests>=2.31.0",
   "PyYAML>=6.0.0",
-]
-
-[project.optional-dependencies]
-transcribe = [
   "funasr>=1.2.6",
   "modelscope>=1.17.0",
   "opencc-python-reimplemented>=0.1.7",
