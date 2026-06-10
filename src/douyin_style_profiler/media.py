@@ -528,9 +528,9 @@ def transcribe_audio(audio_path: str | Path) -> str:
     except ImportError as exc:
         raise RuntimeError("未安装 FunASR，请先安装 requirements-transcribe.txt 或运行 bootstrap 脚本") from exc
     if _funasr_model is None:
-        modelscope_cache = Path(os.environ.get("MODELSCOPE_CACHE") or Path.cwd() / "models" / "modelscope")
-        modelscope_cache.mkdir(parents=True, exist_ok=True)
-        os.environ.setdefault("MODELSCOPE_CACHE", str(modelscope_cache))
+        from .model_cache import configure_modelscope_cache
+
+        configure_modelscope_cache()
         _funasr_model = AutoModel(
             model=os.environ.get("FUNASR_MODEL", "paraformer-zh"),
             model_revision=os.environ.get("FUNASR_MODEL_REVISION", "v2.0.4"),

@@ -8,12 +8,13 @@ from typing import Any, Tuple
 import yaml
 
 
-_DEFAULT_MODEL_DIR = Path.home() / ".cache/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large"
 _model_instance: Tuple[Any, list[str]] | None = None
 
 
 def _model_dir() -> Path:
-    return Path(os.environ.get("FUNASR_PUNC_MODEL_DIR") or _DEFAULT_MODEL_DIR)
+    from .model_cache import ensure_punctuation_model_dir
+
+    return ensure_punctuation_model_dir()
 
 
 def _load_model() -> Tuple[Any, list[str]]:

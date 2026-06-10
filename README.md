@@ -114,10 +114,11 @@ LLM_BASE_URL=https://api.example.com
 2. 使用本地 CT-Transformer 标点模型恢复中文标点。
 3. 使用 OpenCC 做繁体转简体。
 
-标点模型默认读取 ModelScope 缓存目录：
+标点模型会先搜索用户环境里已有的 ModelScope 缓存，常见位置包括：
 
 ```text
 ~/.cache/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
+models/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
 ```
 
 如果你的模型放在其他位置，可以设置：
@@ -195,7 +196,7 @@ outputs/
   style_prompt.txt
 ```
 
-FunASR 首次转写时会下载模型，默认缓存到 `models/modelscope/`。模型文件不建议提交到 GitHub。
+FunASR 首次转写前会先搜索用户已有的 ModelScope 缓存，例如 `~/.cache/modelscope/`、`~/.modelscope/` 和项目内 `models/modelscope/`。只有找不到可用模型时，才会下载到项目内 `models/modelscope/`。模型文件不建议提交到 GitHub。
 
 ## 项目结构
 
