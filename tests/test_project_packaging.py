@@ -43,6 +43,26 @@ class ProjectPackagingTest(unittest.TestCase):
         self.assertNotIn("MiniMax 作为备用", readme)
         self.assertNotIn("gpt-5.5", readme)
 
+    def test_login_confirmation_can_wait_without_interactive_stdin(self):
+        from douyin_style_profiler.collector import wait_for_login_confirmation
+
+        calls = []
+
+        async def fake_sleep(seconds):
+            calls.append(seconds)
+
+        import asyncio
+
+        asyncio.run(
+            wait_for_login_confirmation(
+                wait_seconds=12,
+                input_fn=lambda: (_ for _ in ()).throw(EOFError()),
+                sleep_fn=fake_sleep,
+            )
+        )
+
+        self.assertEqual(calls, [12])
+
 
 if __name__ == "__main__":
     unittest.main()

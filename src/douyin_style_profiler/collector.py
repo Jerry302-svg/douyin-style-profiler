@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import List
+from typing import Awaitable, Callable, List
 
 from .schemas import VideoItem
 
@@ -14,6 +14,7 @@ DOUYIN_HOME = "https://www.douyin.com"
 async def save_douyin_login_state(
     storage_state_path: str | Path = "runtime/douyin_storage_state.json",
     headless: bool = False,
+    wait_seconds: int = 0,
 ) -> str:
     """Open Douyin with Playwright and save cookies after the user logs in."""
     from playwright.async_api import async_playwright
@@ -25,11 +26,27 @@ async def save_douyin_login_state(
         context = await browser.new_context(locale="zh-CN")
         page = await context.new_page()
         await page.goto(DOUYIN_HOME, wait_until="domcontentloaded", timeout=60000)
-        print("请在打开的浏览器里登录抖音。登录完成后回到终端按 Enter。")
-        await asyncio.to_thread(input)
+        await wait_for_login_confirmation(wait_seconds=wait_seconds)
         await context.storage_state(path=str(target))
         await browser.close()
     return str(target)
+
+
+async def wait_for_login_confirmation(
+    wait_seconds: int = 0,
+    input_fn: Callable[[], str] = input,
+    sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    if wait_seconds > 0:
+        print(f"请在打开的浏览器里登录抖音。程序会在 {wait_seconds} 秒后自动保存 Cookie。")
+        await sleep_fn(wait_seconds)
+        return
+    print("请在打开的浏览器里登录抖音。登录完成后回到终端按 Enter。")
+    try:
+        await asyncio.to_thread(input_fn)
+    except EOFError:
+        print("当前终端不能读取回车。请改用 --wait-seconds 60 这类参数自动等待后保存 Cookie。")
+        raise
 
 
 async def collect_profile_topn(
@@ -98,4 +115,3 @@ def load_video_items(path: str | Path) -> List[VideoItem]:
         elif isinstance(item, dict):
             items.append(VideoItem(**{key: item.get(key) for key in ["url", "title", "transcript", "like_count", "metadata"] if key in item}))
     return items
-

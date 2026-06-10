@@ -39,6 +39,7 @@ def main() -> None:
     login = subparsers.add_parser("login", help="用 Playwright 登录抖音并保存 Cookie")
     login.add_argument("--state", default="runtime/douyin_storage_state.json", help="Cookie 保存路径")
     login.add_argument("--headless", action="store_true", help="无头浏览器模式，不建议首次登录使用")
+    login.add_argument("--wait-seconds", type=int, default=0, help="不等待回车，打开浏览器后等待指定秒数再自动保存 Cookie")
 
     collect = subparsers.add_parser("collect", help="采集对标账号主页 TopN 视频卡片")
     collect.add_argument("--profile-url", required=True, help="抖音博主主页分享链接")
@@ -80,7 +81,7 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.command == "login":
-        path = asyncio.run(save_douyin_login_state(args.state, headless=args.headless))
+        path = asyncio.run(save_douyin_login_state(args.state, headless=args.headless, wait_seconds=args.wait_seconds))
         print(f"Cookie 已保存：{path}")
         return
     if args.command == "collect":
