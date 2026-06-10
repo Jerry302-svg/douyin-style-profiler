@@ -106,6 +106,30 @@ async def extract_audio_async(video_path: str | Path, audio_path: str | Path | N
     return await asyncio.to_thread(extract_audio, video_path, audio_path)
 
 
+def postprocess_transcript(
+    raw_text: Any,
+    punctuator: Optional[Callable[[str], str]] = None,
+) -> str:
+    text = str(raw_text or "").replace(" ", "").strip()
+    if not text:
+        return ""
+    if punctuator is None:
+        from .punctuation import add_punctuation
+
+        punctuator = add_punctuation
+    try:
+        text = punctuator(text)
+    except Exception:
+        pass
+    try:
+        from .punctuation import to_simplified_chinese
+
+        text = to_simplified_chinese(text)
+    except Exception:
+        pass
+    return text.strip()
+
+
 def parse_douyin_url(url: str) -> Optional[Dict[str, Any]]:
     text = (url or "").strip()
     video_match = re.search(r"/video/(\d+)", text)
@@ -511,21 +535,13 @@ def transcribe_audio(audio_path: str | Path) -> str:
             model=os.environ.get("FUNASR_MODEL", "paraformer-zh"),
             model_revision=os.environ.get("FUNASR_MODEL_REVISION", "v2.0.4"),
             vad_model=os.environ.get("FUNASR_VAD_MODEL", "fsmn-vad"),
-            punc_model=os.environ.get("FUNASR_PUNC_MODEL", "ct-punc"),
             disable_update=True,
         )
     result = _funasr_model.generate(str(source), batch_size_s=300)
     if not isinstance(result, list) or not result:
         raise RuntimeError("FunASR 未返回有效转写结果")
     raw_text = result[0].get("text", result[0]) if isinstance(result[0], dict) else result[0]
-    text = str(raw_text or "").replace(" ", "").strip()
-    try:
-        from opencc import OpenCC
-
-        text = OpenCC("t2s").convert(text)
-    except Exception:
-        pass
-    return text
+    return postprocess_transcript(raw_text)
 
 
 def transcribe_video_items(

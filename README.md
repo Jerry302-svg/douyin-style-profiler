@@ -8,7 +8,7 @@
 
 - 用 Playwright 打开抖音并保存登录 Cookie。
 - 复用楼大壮项目下载层：`DouyinAPIClient + X-Bogus + Top10 + 视频下载 + ffmpeg 抽音频`。
-- 用 FunASR 自动转写音频，模型默认下载到 `models/`。
+- 用 FunASR 自动转写音频，并按楼大壮主项目流程做本地标点恢复和繁体转简体。
 - 根据转写稿生成 10 个风格模块。
 - 输出：
   - `profile_videos.json`
@@ -35,6 +35,7 @@
 - Python 3.10+，推荐 Python 3.10 / 3.11 / 3.12
 - ffmpeg
 - 能正常访问抖音网页
+- FunASR 转写模型和 CT-Transformer 标点模型，默认使用 ModelScope 本地缓存
 
 ffmpeg 需要能在命令行里直接执行：
 
@@ -104,6 +105,26 @@ LLM_BASE_URL=https://api.example.com
 ```
 
 如果不传 `--llm`，工具会使用 deterministic fallback 生成基础风格档案，方便先测试流程。
+
+## 转写后处理
+
+视频转写完成后会统一经过三步处理：
+
+1. 去掉 FunASR 逐字输出里的空格。
+2. 使用本地 CT-Transformer 标点模型恢复中文标点。
+3. 使用 OpenCC 做繁体转简体。
+
+标点模型默认读取 ModelScope 缓存目录：
+
+```text
+~/.cache/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
+```
+
+如果你的模型放在其他位置，可以设置：
+
+```bash
+export FUNASR_PUNC_MODEL_DIR=/path/to/punc_ct-transformer_cn-en-common-vocab471067-large
+```
 
 ## 使用
 

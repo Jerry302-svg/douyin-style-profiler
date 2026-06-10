@@ -89,6 +89,26 @@ class MediaPipelineTest(unittest.TestCase):
             self.assertEqual(result[0].metadata["transcribe_status"], "success")
             self.assertEqual(result[0].metadata["audio_path"], str(audio_path))
 
+    def test_postprocess_transcript_removes_spaces_adds_model_punctuation_and_simplifies(self):
+        from douyin_style_profiler.media import postprocess_transcript
+
+        result = postprocess_transcript(
+            "這 是 一 段 轉 寫",
+            punctuator=lambda text: f"{text}。",
+        )
+
+        self.assertEqual(result, "这是一段转写。")
+
+    def test_postprocess_transcript_keeps_simplified_text_when_punctuation_model_fails(self):
+        from douyin_style_profiler.media import postprocess_transcript
+
+        def broken_punctuator(text):
+            raise RuntimeError("model missing")
+
+        result = postprocess_transcript("這 是 一 段 轉 寫", punctuator=broken_punctuator)
+
+        self.assertEqual(result, "这是一段转写")
+
     def test_run_profile_pipeline_collects_downloads_transcribes_and_writes_outputs(self):
         from douyin_style_profiler.pipeline import run_profile_pipeline
 
