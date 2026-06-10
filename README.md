@@ -221,9 +221,3 @@ python -m compileall -q src tests
 ## 合规说明
 
 本项目只提供个人授权场景下的浏览器自动化、视频下载、音频转写和风格分析能力，不内置任何 Cookie、账号凭证或真实博主数据。使用者需要确保自己对采集、下载、转写和分析的数据拥有合法使用权限。
-
-## 参考
-
-Cookie 获取流程参考了公开项目 `jiji262/douyin-downloader` 的使用体验：通过 Playwright 打开浏览器，用户登录后保存 Cookie 到本地配置。
-
-下载层复用了楼大壮项目中基于公开下载项目思路整理的 Douyin API / X-Bogus vendor 代码。`src/douyin/utils/xbogus.py` 等文件保留了原 Apache License 头部；如果你发布到 GitHub，建议保留相关许可证说明。
