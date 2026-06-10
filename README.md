@@ -118,6 +118,8 @@ LLM_BASE_URL=https://api.example.com
 
 ```text
 ~/.cache/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
+%USERPROFILE%\.cache\modelscope\hub\models\iic\punc_ct-transformer_cn-en-common-vocab471067-large
+/mnt/c/Users/<你的Windows用户名>/.cache/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
 models/modelscope/hub/models/iic/punc_ct-transformer_cn-en-common-vocab471067-large
 ```
 
@@ -196,7 +198,7 @@ outputs/
   style_prompt.txt
 ```
 
-FunASR 首次转写前会先搜索用户已有的 ModelScope 缓存，例如 `~/.cache/modelscope/`、`~/.modelscope/` 和项目内 `models/modelscope/`。只有找不到可用模型时，才会下载到项目内 `models/modelscope/`。模型文件不建议提交到 GitHub。
+FunASR 首次转写前会先搜索用户已有的 ModelScope 缓存，例如 `~/.cache/modelscope/`、`~/.modelscope/`、Windows 原生的 `%USERPROFILE%\.cache\modelscope\`、WSL 里的 `/mnt/c/Users/<用户名>/.cache/modelscope/`，以及项目内 `models/modelscope/`。只有找不到可用模型时，才会下载到项目内 `models/modelscope/`。模型文件不建议提交到 GitHub。
 
 ## 项目结构
 

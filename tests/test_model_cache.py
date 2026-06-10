@@ -4,6 +4,32 @@ from pathlib import Path
 
 
 class ModelCacheTest(unittest.TestCase):
+    def test_default_search_roots_include_windows_userprofile_cache(self):
+        from douyin_style_profiler.model_cache import default_modelscope_search_roots
+
+        roots = default_modelscope_search_roots(
+            env={
+                "USERPROFILE": "C:\\Users\\Alice",
+            }
+        )
+
+        root_text = [path.as_posix() for path in roots]
+        self.assertIn("/mnt/c/Users/Alice/.cache/modelscope", root_text)
+        self.assertIn("/mnt/c/Users/Alice/.modelscope", root_text)
+
+    def test_default_search_roots_include_wsl_mounted_windows_home(self):
+        from douyin_style_profiler.model_cache import default_modelscope_search_roots
+
+        roots = default_modelscope_search_roots(
+            env={
+                "WIN_USERPROFILE": "/mnt/c/Users/Alice",
+            }
+        )
+
+        root_text = [path.as_posix() for path in roots]
+        self.assertIn("/mnt/c/Users/Alice/.cache/modelscope", root_text)
+        self.assertIn("/mnt/c/Users/Alice/.modelscope", root_text)
+
     def test_resolve_modelscope_cache_reuses_existing_complete_user_cache(self):
         from douyin_style_profiler.model_cache import (
             FUNASR_ASR_MODEL_IDS,

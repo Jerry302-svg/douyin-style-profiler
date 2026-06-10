@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -34,6 +35,7 @@ def default_modelscope_search_roots(env: Mapping[str, str] | None = None) -> lis
         [
             Path.home() / ".cache" / "modelscope",
             Path.home() / ".modelscope",
+            *_windows_modelscope_roots(source),
             Path.cwd() / "models" / "modelscope",
         ]
     )
@@ -46,6 +48,32 @@ def default_modelscope_search_roots(env: Mapping[str, str] | None = None) -> lis
             seen.add(key)
             unique.append(root)
     return unique
+
+
+def _windows_modelscope_roots(env: Mapping[str, str]) -> list[Path]:
+    roots: list[Path] = []
+    for value in [
+        (env.get("WIN_USERPROFILE") or "").strip(),
+        (env.get("USERPROFILE") or "").strip(),
+    ]:
+        if value:
+            profile = _userprofile_path(value)
+            roots.extend([profile / ".cache" / "modelscope", profile / ".modelscope"])
+
+    wsl_users = Path("/mnt/c/Users")
+    if wsl_users.exists():
+        for profile in sorted(path for path in wsl_users.iterdir() if path.is_dir()):
+            roots.extend([profile / ".cache" / "modelscope", profile / ".modelscope"])
+    return roots
+
+
+def _userprofile_path(value: str) -> Path:
+    match = re.match(r"^([A-Za-z]):[\\/](.*)$", value)
+    if os.name != "nt" and match:
+        drive = match.group(1).lower()
+        rest = match.group(2).replace("\\", "/")
+        return Path("/mnt") / drive / rest
+    return Path(value).expanduser()
 
 
 def resolve_modelscope_cache(
