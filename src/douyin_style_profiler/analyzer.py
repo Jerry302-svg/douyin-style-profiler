@@ -171,24 +171,49 @@ def deterministic_style_profile(transcripts: List[str], nickname: str, source_ur
 
 def _extract_json(text: str) -> Dict[str, Any]:
     cleaned = (text or "").strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned).strip()
-    cleaned = re.sub(r"\s*```$", "", cleaned).strip()
-    if cleaned and cleaned[0] != "{":
-        start = cleaned.find("{")
-        if start >= 0:
-            cleaned = cleaned[start:]
-    if cleaned.startswith("{"):
-        cleaned = _first_json_object(cleaned)
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"LLM 没有返回合法 JSON：{exc}") from exc
-    if not isinstance(data, dict):
-        raise ValueError("LLM JSON 必须是 object")
-    return data
+    candidates = _json_candidates(cleaned)
+    parsed: List[Dict[str, Any]] = []
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            parsed.append(data)
+    if not parsed:
+        raise ValueError("LLM 没有返回合法 JSON object")
+    return max(parsed, key=_style_json_score)
 
 
-def _first_json_object(text: str) -> str:
+def _json_candidates(text: str) -> List[str]:
+    candidates: List[str] = []
+    variants = [text, _remove_thinking_blocks(text)]
+
+    for variant in variants:
+        for match in re.finditer(r"```(?:json)?\s*(.*?)\s*```", variant, re.DOTALL | re.IGNORECASE):
+            candidates.append(match.group(1).strip())
+
+    for variant in variants:
+        stripped = re.sub(r"^```(?:json)?\s*", "", variant.strip(), flags=re.IGNORECASE).strip()
+        stripped = re.sub(r"\s*```$", "", stripped).strip()
+        candidates.extend(_balanced_json_objects(stripped))
+
+    unique: List[str] = []
+    seen = set()
+    for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            unique.append(candidate)
+    return unique
+
+
+def _remove_thinking_blocks(text: str) -> str:
+    return re.sub(r"<think\b[^>]*>.*?</think>", "", text or "", flags=re.DOTALL | re.IGNORECASE)
+
+
+def _balanced_json_objects(text: str) -> List[str]:
+    objects: List[str] = []
+    start: Optional[int] = None
     in_string = False
     escaped = False
     depth = 0
@@ -205,12 +230,27 @@ def _first_json_object(text: str) -> str:
         if in_string:
             continue
         if char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
             if depth == 0:
-                return text[: index + 1]
-    return text
+                start = index
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                objects.append(text[start : index + 1])
+                start = None
+    return objects
+
+
+def _style_json_score(data: Dict[str, Any]) -> int:
+    score = 0
+    if _has_value(data.get("summary")):
+        score += 2
+    if isinstance(data.get("style_report"), dict):
+        score += 2
+    for key in STYLE_MODULE_KEYS:
+        if _has_value(data.get(key)):
+            score += 1
+    return score
 
 
 def _has_value(value: Any) -> bool:

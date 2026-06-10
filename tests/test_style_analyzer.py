@@ -68,6 +68,28 @@ class StyleAnalyzerTest(unittest.TestCase):
         self.assertEqual(profile.summary, "短句、直接、先给动作")
         self.assertEqual(profile.hook["pattern"], "先提醒不要急")
 
+    def test_parse_llm_style_profile_ignores_thinking_json_and_uses_report_json(self):
+        raw = """
+<think>
+我先想一下结构。这里可能会写一个草稿：{"summary": "思考过程里的草稿", "debug": true}
+</think>
+
+```json
+{
+  "summary": "真正的风格总结",
+  "hook": {"pattern": "先用冲突钩子开头"},
+  "content_structure": {"pattern": "痛点 -> 判断 -> 方法"},
+  "generation_tips": ["先抛矛盾", "再给动作"]
+}
+```
+""".strip()
+
+        profile = parse_llm_style_profile(raw, nickname="带思考输出")
+
+        self.assertEqual(profile.summary, "真正的风格总结")
+        self.assertEqual(profile.hook["pattern"], "先用冲突钩子开头")
+        self.assertEqual(profile.content_structure["pattern"], "痛点 -> 判断 -> 方法")
+
     def test_parse_llm_style_profile_accepts_complete_json(self):
         payload = {
             "summary": "短句、直接、先给动作",
