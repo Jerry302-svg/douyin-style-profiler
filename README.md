@@ -1,14 +1,14 @@
 # Douyin Style Profiler
 
-对标账号风格分析工具。输入抖音博主主页分享链接，按楼大壮项目同款流程采集 Top10 高赞视频、下载视频、抽取音频、自动转写，再生成结构化风格档案。
+对标账号风格分析工具。输入抖音博主主页分享链接，采集 Top10 高赞视频、下载视频、抽取音频、自动转写，再生成结构化风格档案。
 
 这个项目默认面向会配置 Python 环境的 GitHub 用户。推荐使用 Python 3.10+，优先 Python 3.10 / 3.11 / 3.12。项目不内置 Python、浏览器运行时或虚拟环境；所有依赖都写在 `requirements.txt` 里。
 
 ## 能做什么
 
 - 用 Playwright 打开抖音并保存登录 Cookie。
-- 复用楼大壮项目下载层：`DouyinAPIClient + X-Bogus + Top10 + 视频下载 + ffmpeg 抽音频`。
-- 用 FunASR 自动转写音频，并按楼大壮主项目流程做本地标点恢复和繁体转简体。
+- 内置抖音下载层：`DouyinAPIClient + X-Bogus + Top10 + 视频下载 + ffmpeg 抽音频`。
+- 用 FunASR 自动转写音频，并做本地标点恢复和繁体转简体。
 - 根据转写稿生成 10 个风格模块。
 - 输出：
   - `profile_videos.json`
@@ -203,7 +203,7 @@ FunASR 首次转写前会先搜索用户已有的 ModelScope 缓存，例如 `~/
 ## 项目结构
 
 ```text
-src/douyin/                  楼大壮项目同款抖音下载 vendor 层
+src/douyin/                  抖音下载 vendor 层
 src/douyin_style_profiler/   工具本体
 examples/                    示例转写输入
 tests/                       单元测试
