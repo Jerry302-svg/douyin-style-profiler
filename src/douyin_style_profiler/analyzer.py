@@ -80,9 +80,6 @@ def parse_llm_style_profile(raw_text: str, nickname: str = "对标账号", sourc
         nested = data["style_report"]
         for key in ["hook", "content_structure", "expression_style", "cta", "topic_selection", "overall_tone"]:
             data.setdefault(key, nested.get(key))
-    missing = [key for key in STYLE_MODULE_KEYS if not _has_value(data.get(key))]
-    if missing:
-        raise ValueError(f"缺少必要模块：{', '.join(missing)}")
     tips = data.get("generation_tips") or []
     if isinstance(tips, str):
         tips = [line.strip("- ").strip() for line in tips.splitlines() if line.strip()]
@@ -90,15 +87,15 @@ def parse_llm_style_profile(raw_text: str, nickname: str = "对标账号", sourc
         nickname=nickname,
         source_url=source_url,
         summary=str(data.get("summary") or "").strip(),
-        hook=_as_dict(data["hook"]),
-        content_structure=_as_dict(data["content_structure"]),
-        expression_style=_as_dict(data["expression_style"]),
-        cta=_as_dict(data["cta"]),
-        topic_selection=_as_dict(data["topic_selection"]),
-        overall_tone=_as_dict(data["overall_tone"]),
-        emotion_analysis=_as_dict(data["emotion_analysis"]),
-        user_psychology=_as_dict(data["user_psychology"]),
-        signature_mark=_as_dict(data["signature_mark"]),
+        hook=_as_dict(data.get("hook")),
+        content_structure=_as_dict(data.get("content_structure")),
+        expression_style=_as_dict(data.get("expression_style")),
+        cta=_as_dict(data.get("cta")),
+        topic_selection=_as_dict(data.get("topic_selection")),
+        overall_tone=_as_dict(data.get("overall_tone")),
+        emotion_analysis=_as_dict(data.get("emotion_analysis")),
+        user_psychology=_as_dict(data.get("user_psychology")),
+        signature_mark=_as_dict(data.get("signature_mark")),
         generation_tips=[str(item).strip() for item in tips if str(item).strip()],
         sample_count=sample_count,
     )
@@ -180,8 +177,8 @@ def _extract_json(text: str) -> Dict[str, Any]:
         start = cleaned.find("{")
         if start >= 0:
             cleaned = cleaned[start:]
-    if cleaned.startswith("{") and "}" in cleaned:
-        cleaned = cleaned[: cleaned.rfind("}") + 1]
+    if cleaned.startswith("{"):
+        cleaned = _first_json_object(cleaned)
     try:
         data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
@@ -189,6 +186,31 @@ def _extract_json(text: str) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("LLM JSON 必须是 object")
     return data
+
+
+def _first_json_object(text: str) -> str:
+    in_string = False
+    escaped = False
+    depth = 0
+    for index, char in enumerate(text):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[: index + 1]
+    return text
 
 
 def _has_value(value: Any) -> bool:
@@ -204,6 +226,10 @@ def _has_value(value: Any) -> bool:
 
 
 def _as_dict(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, str) and not value.strip():
+        return {}
     if isinstance(value, dict):
         return value
     if isinstance(value, list):
@@ -214,4 +240,3 @@ def _as_dict(value: Any) -> Dict[str, Any]:
 def _top_sentences(text: str, limit: int = 5) -> List[str]:
     parts = re.split(r"[。！？!?；;\n]+", text)
     return [part.strip() for part in parts if part.strip()][:limit]
-

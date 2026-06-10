@@ -36,8 +36,8 @@ class StyleAnalyzerTest(unittest.TestCase):
         self.assertIn("## 10. 生成建议", markdown)
         self.assertIn("## 可复制风格提示词", markdown)
 
-    def test_parse_llm_style_profile_requires_all_modules(self):
-        bad_json = json.dumps(
+    def test_parse_llm_style_profile_allows_missing_modules(self):
+        partial_json = json.dumps(
             {
                 "summary": "只返回了摘要",
                 "hook": {"pattern": "提问开头"},
@@ -45,8 +45,28 @@ class StyleAnalyzerTest(unittest.TestCase):
             ensure_ascii=False,
         )
 
-        with self.assertRaisesRegex(ValueError, "缺少必要模块"):
-            parse_llm_style_profile(bad_json, nickname="坏输出")
+        profile = parse_llm_style_profile(partial_json, nickname="部分输出")
+
+        self.assertEqual(profile.summary, "只返回了摘要")
+        self.assertEqual(profile.hook["pattern"], "提问开头")
+        self.assertEqual(profile.signature_mark, {})
+        self.assertEqual(profile.generation_tips, [])
+
+    def test_parse_llm_style_profile_ignores_text_after_first_json_object(self):
+        payload = {
+            "summary": "短句、直接、先给动作",
+            "hook": {"pattern": "先提醒不要急"},
+        }
+        raw = (
+            json.dumps(payload, ensure_ascii=False)
+            + "\n\n补充说明：这段不应该进入报告。\n"
+            + json.dumps({"debug": "第二个 JSON 也不应该进入报告"}, ensure_ascii=False)
+        )
+
+        profile = parse_llm_style_profile(raw, nickname="带杂音输出")
+
+        self.assertEqual(profile.summary, "短句、直接、先给动作")
+        self.assertEqual(profile.hook["pattern"], "先提醒不要急")
 
     def test_parse_llm_style_profile_accepts_complete_json(self):
         payload = {
