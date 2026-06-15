@@ -185,6 +185,20 @@ python -m douyin_style_profiler analyze \
 python -m douyin_style_profiler run --profile-url "https://v.douyin.com/xxxx/" --metadata-only
 ```
 
+## 环境自检
+
+如果不确定本机环境是否准备好，可以先运行：
+
+```bash
+python -m douyin_style_profiler doctor
+```
+
+它会检查 Python 版本、ffmpeg、Cookie 文件、LLM 配置完整性和 FunASR 包是否可导入。只想做主页文本采集或已有转写稿分析时，可以跳过转写依赖检查：
+
+```bash
+python -m douyin_style_profiler doctor --skip-transcription
+```
+
 ## 输出目录
 
 默认输出在 `outputs/`：

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .analyzer import analyze_video_items
 from .collector import collect_profile_topn, load_video_items, save_douyin_login_state, save_video_items
+from .diagnostics import diagnostics_has_errors, format_diagnostics, run_diagnostics
 from .llm import LLMClient, load_dotenv
 from .media import collect_and_download_profile, transcribe_video_items
 from .pipeline import run_profile_pipeline, write_transcripts
@@ -35,6 +36,10 @@ def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="douyin-style-profiler", description="对标账号风格分析工具")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    doctor = subparsers.add_parser("doctor", help="检查本机运行环境和常见配置")
+    doctor.add_argument("--state", default="runtime/douyin_storage_state.json", help="Cookie 路径")
+    doctor.add_argument("--skip-transcription", action="store_true", help="跳过 FunASR 转写依赖检查")
 
     login = subparsers.add_parser("login", help="用 Playwright 登录抖音并保存 Cookie")
     login.add_argument("--state", default="runtime/douyin_storage_state.json", help="Cookie 保存路径")
@@ -80,6 +85,12 @@ def main() -> None:
     run.add_argument("--max-concurrency", type=int, default=3, help="下载并发数，最多 5")
 
     args = parser.parse_args()
+    if args.command == "doctor":
+        checks = run_diagnostics(args.state, include_transcription=not args.skip_transcription)
+        print(format_diagnostics(checks))
+        if diagnostics_has_errors(checks):
+            raise SystemExit(1)
+        return
     if args.command == "login":
         path = asyncio.run(save_douyin_login_state(args.state, headless=args.headless, wait_seconds=args.wait_seconds))
         print(f"Cookie 已保存：{path}")
