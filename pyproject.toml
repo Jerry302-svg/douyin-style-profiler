@@ -6,7 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "douyin-style-profiler"
 version = "0.1.0"
 description = "Benchmark Douyin profile style analyzer"
+readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Jerry302-svg" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -23,8 +26,15 @@ dependencies = [
   "opencc-python-reimplemented>=0.1.7",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
 [project.scripts]
 douyin-style-profiler = "douyin_style_profiler.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

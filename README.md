@@ -214,9 +214,12 @@ outputs/                     运行输出目录
 ## 测试
 
 ```bash
-python -m unittest discover -s tests -v
+pip install -e ".[dev]"
+python -m pytest -q
 python -m compileall -q src tests
 ```
+
+这些测试只覆盖本地逻辑、配置解析、报告生成和轻量流程编排，不会真实登录抖音、下载视频、安装浏览器运行时或下载 FunASR 模型。
 
 ## 合规说明
 
