@@ -39,11 +39,14 @@ def render_markdown_report(profile: StyleProfile) -> str:
     if profile.samples:
         lines.extend(["## 样本明细", ""])
         for sample in profile.samples:
-            title = sample.get("title") or f"样本 {sample.get('index', '')}".strip()
-            url = sample.get("url") or "未提供"
+            title = _short_text(sample.get("title") or f"样本 {sample.get('index', '')}".strip(), limit=72)
+            url = _link("打开原视频", sample.get("url") or "")
             chars = sample.get("transcript_chars", 0)
             source = "转写稿" if sample.get("has_transcript") else "标题/描述"
             lines.append(f"- {title}（{source}，{chars} 字）：{url}")
+            preview = sample.get("preview") or sample.get("transcript_preview") or ""
+            if preview:
+                lines.append(f"  - 预览：{preview}")
         lines.append("")
     lines.extend([
         "## 可复制风格提示词",
@@ -86,15 +89,68 @@ def write_outputs(profile: StyleProfile, output_dir: str | Path) -> Dict[str, st
 
 def _render_value(value: Any) -> list[str]:
     if isinstance(value, dict):
-        return [f"- **{key}**：{_compact(item)}" for key, item in value.items()]
+        if set(value.keys()) == {"text"}:
+            return [f"- {_compact(value.get('text'))}"]
+        lines: list[str] = []
+        for key, item in value.items():
+            if _is_complex(item):
+                lines.append(f"- **{key}**：")
+                lines.extend(_render_nested(item, indent=2))
+            else:
+                lines.append(f"- **{key}**：{_compact(item)}")
+        return lines
     if isinstance(value, list):
-        return [f"- {item}" for item in value]
+        return _render_nested(value, indent=0)
     return [str(value)]
+
+
+def _render_nested(value: Any, indent: int = 0) -> list[str]:
+    prefix = " " * indent
+    if isinstance(value, list):
+        lines: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                lines.extend(_render_nested(item, indent=indent + 2))
+            elif isinstance(item, list):
+                lines.extend(_render_nested(item, indent=indent + 2))
+            else:
+                lines.append(f"{prefix}- {_compact(item)}")
+        return lines
+    if isinstance(value, dict):
+        lines = []
+        for key, item in value.items():
+            if _is_complex(item):
+                lines.append(f"{prefix}- {key}：")
+                lines.extend(_render_nested(item, indent=indent + 2))
+            else:
+                lines.append(f"{prefix}- {key}：{_compact(item)}")
+        return lines
+    return [f"{prefix}- {_compact(value)}"]
 
 
 def _compact(value: Any) -> str:
     if isinstance(value, dict):
+        if set(value.keys()) == {"text"}:
+            return _compact(value.get("text"))
         return "；".join(f"{key}: {_compact(item)}" for key, item in value.items())
     if isinstance(value, list):
-        return "、".join(str(item) for item in value)
+        return "、".join(_compact(item) for item in value)
     return str(value)
+
+
+def _is_complex(value: Any) -> bool:
+    return isinstance(value, (dict, list))
+
+
+def _link(label: str, url: str) -> str:
+    value = (url or "").strip()
+    if not value:
+        return "未提供"
+    return f"[{label}]({value})"
+
+
+def _short_text(value: Any, limit: int = 72) -> str:
+    text = " ".join(str(value or "").split()).strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "..."

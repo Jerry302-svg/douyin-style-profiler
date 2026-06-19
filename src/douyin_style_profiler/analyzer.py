@@ -77,6 +77,7 @@ def select_analysis_samples(
                 "url": video.url,
                 "transcript_chars": len(text),
                 "has_transcript": bool(transcript),
+                "preview": _preview_text(text),
             }
         )
     return selected, samples
@@ -337,3 +338,10 @@ def _as_dict(value: Any) -> Dict[str, Any]:
 def _top_sentences(text: str, limit: int = 5) -> List[str]:
     parts = re.split(r"[。！？!?；;\n]+", text)
     return [part.strip() for part in parts if part.strip()][:limit]
+
+
+def _preview_text(text: str, limit: int = 80) -> str:
+    value = " ".join(str(text or "").split()).strip()
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + "..."

@@ -61,6 +61,52 @@ class StyleAnalyzerTest(unittest.TestCase):
 
         self.assertIn("## 样本明细", markdown)
         self.assertIn("长样本一", markdown)
+        self.assertIn("[打开原视频](https://example.com/1)", markdown)
+        self.assertNotIn("：https://example.com/1", markdown)
+
+    def test_render_markdown_report_formats_nested_values_and_sample_preview(self):
+        raw = json.dumps(
+            {
+                "summary": "冷静拆步骤",
+                "hook": {"common_patterns": ["先别急", "先留证据"]},
+                "content_structure": {"stages": [{"stage": "钩子", "function": "打断情绪"}]},
+                "generation_tips": ["先给动作"],
+            },
+            ensure_ascii=False,
+        )
+        profile = parse_llm_style_profile(
+            raw,
+            nickname="格式测试",
+            sample_count=1,
+            samples=[
+                {
+                    "index": 1,
+                    "title": "样本 1",
+                    "url": "",
+                    "transcript_chars": 18,
+                    "has_transcript": True,
+                    "preview": "先别急，先把证据留好。",
+                }
+            ],
+        )
+
+        markdown = render_markdown_report(profile)
+
+        self.assertIn("  - 先别急", markdown)
+        self.assertIn("    - stage：钩子", markdown)
+        self.assertIn("预览：先别急，先把证据留好。", markdown)
+        self.assertNotIn("{'stage'", markdown)
+
+    def test_render_markdown_report_hides_single_text_wrapper(self):
+        profile = parse_llm_style_profile(
+            json.dumps({"summary": "冷静", "hook": "先别急，先做第一步。"}, ensure_ascii=False),
+            nickname="文本包装",
+        )
+
+        markdown = render_markdown_report(profile)
+
+        self.assertIn("- 先别急，先做第一步。", markdown)
+        self.assertNotIn("**text**", markdown)
 
     def test_parse_llm_style_profile_allows_missing_modules(self):
         partial_json = json.dumps(
