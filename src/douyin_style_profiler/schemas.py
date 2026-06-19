@@ -46,6 +46,7 @@ class StyleProfile:
     user_psychology: Dict[str, Any] = field(default_factory=dict)
     signature_mark: Dict[str, Any] = field(default_factory=dict)
     generation_tips: List[str] = field(default_factory=list)
+    samples: List[Dict[str, Any]] = field(default_factory=list)
     style_report: Dict[str, Any] = field(default_factory=dict)
     sample_count: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
@@ -61,4 +62,3 @@ class StyleProfile:
             "overall_tone": self.overall_tone,
         }
         return data
-

@@ -36,6 +36,15 @@ def render_markdown_report(profile: StyleProfile) -> str:
         value = data.get(key)
         lines.extend(_render_value(value))
         lines.append("")
+    if profile.samples:
+        lines.extend(["## 样本明细", ""])
+        for sample in profile.samples:
+            title = sample.get("title") or f"样本 {sample.get('index', '')}".strip()
+            url = sample.get("url") or "未提供"
+            chars = sample.get("transcript_chars", 0)
+            source = "转写稿" if sample.get("has_transcript") else "标题/描述"
+            lines.append(f"- {title}（{source}，{chars} 字）：{url}")
+        lines.append("")
     lines.extend([
         "## 可复制风格提示词",
         "",

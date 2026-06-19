@@ -70,6 +70,8 @@ def main() -> None:
     analyze.add_argument("--nickname", default="对标账号", help="账号昵称")
     analyze.add_argument("--source-url", default="", help="账号主页链接")
     analyze.add_argument("--output-dir", default="outputs/style_profile", help="输出目录")
+    analyze.add_argument("--sample-limit", type=int, default=0, help="最多使用多少条样本参与分析，0 表示不限制")
+    analyze.add_argument("--min-transcript-chars", type=int, default=0, help="只使用转写/标题长度不低于该值的样本")
     _add_llm_args(analyze)
 
     run = subparsers.add_parser("run", help="从主页链接采集并生成风格档案")
@@ -83,6 +85,9 @@ def main() -> None:
     run.add_argument("--metadata-only", action="store_true", help="只采集主页卡片文本，不下载视频、不转写")
     run.add_argument("--keep-video", action="store_true", help="完整流程中保留下载的视频文件")
     run.add_argument("--max-concurrency", type=int, default=3, help="下载并发数，最多 5")
+    run.add_argument("--resume", action="store_true", help="优先复用输出目录中已有 profile_videos.json/transcripts.json")
+    run.add_argument("--sample-limit", type=int, default=0, help="最多使用多少条样本参与分析，0 表示不限制")
+    run.add_argument("--min-transcript-chars", type=int, default=0, help="只使用转写/标题长度不低于该值的样本")
 
     args = parser.parse_args()
     if args.command == "doctor":
@@ -135,7 +140,14 @@ def main() -> None:
     if args.command == "analyze":
         items = load_video_items(args.input)
         llm_client = _build_llm_client(args)
-        profile = analyze_video_items(items, nickname=args.nickname, source_url=args.source_url, llm_client=llm_client)
+        profile = analyze_video_items(
+            items,
+            nickname=args.nickname,
+            source_url=args.source_url,
+            llm_client=llm_client,
+            sample_limit=args.sample_limit,
+            min_transcript_chars=args.min_transcript_chars,
+        )
         outputs = write_outputs(profile, args.output_dir)
         _print_outputs(outputs)
         return
@@ -154,6 +166,9 @@ def main() -> None:
                 transcribe=not args.metadata_only,
                 keep_video=args.keep_video,
                 max_concurrency=args.max_concurrency,
+                resume=args.resume,
+                sample_limit=args.sample_limit,
+                min_transcript_chars=args.min_transcript_chars,
             )
         )
         _print_outputs(outputs)

@@ -185,6 +185,28 @@ python -m douyin_style_profiler analyze \
 python -m douyin_style_profiler run --profile-url "https://v.douyin.com/xxxx/" --metadata-only
 ```
 
+如果上一次已经生成了 `profile_videos.json` 或 `transcripts.json`，可以断点续跑，避免重复采集、下载或转写：
+
+```bash
+python -m douyin_style_profiler run \
+  --profile-url "https://v.douyin.com/xxxx/" \
+  --output-dir outputs/style_profile \
+  --resume \
+  --llm
+```
+
+也可以控制参与分析的样本数量和最短文本长度：
+
+```bash
+python -m douyin_style_profiler analyze \
+  --input outputs/style_profile/transcripts.json \
+  --sample-limit 8 \
+  --min-transcript-chars 30 \
+  --llm
+```
+
+生成的 Markdown 报告会包含“样本明细”，方便确认哪些视频或标题真正进入了分析。
+
 ## 环境自检
 
 如果不确定本机环境是否准备好，可以先运行：

@@ -156,6 +156,63 @@ class MediaPipelineTest(unittest.TestCase):
             self.assertEqual(len(transcripts), 2)
             self.assertEqual(transcripts[0]["transcript"], "第一条 的完整转写。")
 
+    def test_run_profile_pipeline_resume_reuses_existing_transcripts_and_filters_samples(self):
+        from douyin_style_profiler.pipeline import run_profile_pipeline
+
+        async def forbidden_collector(*args, **kwargs):
+            raise AssertionError("resume should not collect again when transcripts exist")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcripts_path = root / "transcripts.json"
+            transcripts_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "url": "https://www.douyin.com/video/1",
+                            "title": "短样本",
+                            "transcript": "太短",
+                            "metadata": {"transcribe_status": "success"},
+                        },
+                        {
+                            "url": "https://www.douyin.com/video/2",
+                            "title": "有效样本一",
+                            "transcript": "这是第一条足够长的转写内容，用于分析账号表达节奏。",
+                            "metadata": {"transcribe_status": "success"},
+                        },
+                        {
+                            "url": "https://www.douyin.com/video/3",
+                            "title": "有效样本二",
+                            "transcript": "这是第二条足够长的转写内容，用于补充分析样本。",
+                            "metadata": {"transcribe_status": "success"},
+                        },
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            outputs = asyncio.run(
+                run_profile_pipeline(
+                    profile_url="https://v.douyin.com/example/",
+                    nickname="测试账号",
+                    top_n=3,
+                    storage_state_path=root / "state.json",
+                    output_dir=root,
+                    llm_client=None,
+                    resume=True,
+                    collector=forbidden_collector,
+                    sample_limit=1,
+                    min_transcript_chars=10,
+                )
+            )
+
+            profile = json.loads(Path(outputs["json"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(profile["sample_count"], 1)
+            self.assertEqual(profile["samples"][0]["title"], "有效样本一")
+            self.assertEqual(profile["samples"][0]["transcript_chars"], len("这是第一条足够长的转写内容，用于分析账号表达节奏。"))
+
 
 if __name__ == "__main__":
     unittest.main()

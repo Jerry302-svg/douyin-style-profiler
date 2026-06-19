@@ -13,6 +13,7 @@ def analyze_style(
     nickname: str = "对标账号",
     source_url: str = "",
     llm_client: Optional[LLMClient] = None,
+    samples: Optional[List[Dict[str, Any]]] = None,
 ) -> StyleProfile:
     clean_transcripts = [text.strip() for text in transcripts if text and text.strip()]
     if not clean_transcripts:
@@ -20,8 +21,14 @@ def analyze_style(
     if llm_client:
         prompt = build_style_prompt(clean_transcripts, nickname=nickname, source_url=source_url)
         raw = llm_client.complete(prompt, temperature=0.2, max_tokens=5000)
-        return parse_llm_style_profile(raw, nickname=nickname, source_url=source_url, sample_count=len(clean_transcripts))
-    return deterministic_style_profile(clean_transcripts, nickname=nickname, source_url=source_url)
+        return parse_llm_style_profile(
+            raw,
+            nickname=nickname,
+            source_url=source_url,
+            sample_count=len(clean_transcripts),
+            samples=samples or [],
+        )
+    return deterministic_style_profile(clean_transcripts, nickname=nickname, source_url=source_url, samples=samples or [])
 
 
 def analyze_video_items(
@@ -29,13 +36,50 @@ def analyze_video_items(
     nickname: str = "对标账号",
     source_url: str = "",
     llm_client: Optional[LLMClient] = None,
+    sample_limit: int = 0,
+    min_transcript_chars: int = 0,
 ) -> StyleProfile:
+    selected, sample_metadata = select_analysis_samples(
+        videos,
+        sample_limit=sample_limit,
+        min_transcript_chars=min_transcript_chars,
+    )
     return analyze_style(
-        transcripts=[video.transcript or video.title for video in videos],
+        transcripts=[video.transcript or video.title for video in selected],
         nickname=nickname,
         source_url=source_url,
         llm_client=llm_client,
+        samples=sample_metadata,
     )
+
+
+def select_analysis_samples(
+    videos: Iterable[VideoItem],
+    sample_limit: int = 0,
+    min_transcript_chars: int = 0,
+) -> tuple[List[VideoItem], List[Dict[str, Any]]]:
+    min_chars = max(0, int(min_transcript_chars or 0))
+    limit = max(0, int(sample_limit or 0))
+    candidates = list(videos)
+    selected = [video for video in candidates if len((video.transcript or video.title or "").strip()) >= min_chars]
+    if not selected:
+        selected = candidates
+    if limit:
+        selected = selected[:limit]
+    samples = []
+    for index, video in enumerate(selected, 1):
+        transcript = (video.transcript or "").strip()
+        text = transcript or (video.title or "").strip()
+        samples.append(
+            {
+                "index": index,
+                "title": video.title or f"样本 {index}",
+                "url": video.url,
+                "transcript_chars": len(text),
+                "has_transcript": bool(transcript),
+            }
+        )
+    return selected, samples
 
 
 def build_style_prompt(transcripts: List[str], nickname: str, source_url: str = "") -> List[Dict[str, str]]:
@@ -74,7 +118,13 @@ emotion_analysis, user_psychology, signature_mark, generation_tips
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def parse_llm_style_profile(raw_text: str, nickname: str = "对标账号", source_url: str = "", sample_count: int = 0) -> StyleProfile:
+def parse_llm_style_profile(
+    raw_text: str,
+    nickname: str = "对标账号",
+    source_url: str = "",
+    sample_count: int = 0,
+    samples: Optional[List[Dict[str, Any]]] = None,
+) -> StyleProfile:
     data = _extract_json(raw_text)
     if "style_report" in data and isinstance(data["style_report"], dict):
         nested = data["style_report"]
@@ -97,13 +147,19 @@ def parse_llm_style_profile(raw_text: str, nickname: str = "对标账号", sourc
         user_psychology=_as_dict(data.get("user_psychology")),
         signature_mark=_as_dict(data.get("signature_mark")),
         generation_tips=[str(item).strip() for item in tips if str(item).strip()],
+        samples=samples or [],
         sample_count=sample_count,
     )
     profile.style_report = profile.to_dict()["style_report"]
     return profile
 
 
-def deterministic_style_profile(transcripts: List[str], nickname: str, source_url: str = "") -> StyleProfile:
+def deterministic_style_profile(
+    transcripts: List[str],
+    nickname: str,
+    source_url: str = "",
+    samples: Optional[List[Dict[str, Any]]] = None,
+) -> StyleProfile:
     joined = "\n".join(transcripts)
     first_sentences = _top_sentences(joined, limit=5)
     question_ratio = joined.count("？") + joined.count("?")
@@ -164,6 +220,7 @@ def deterministic_style_profile(transcripts: List[str], nickname: str, source_ur
             "加入自然口语连接词，比如“其实”“你看”“说白了”。",
             "保持目标用户视角一致，正文里的“你”只指目标用户。",
         ],
+        samples=samples or [],
     )
     profile.style_report = profile.to_dict()["style_report"]
     return profile

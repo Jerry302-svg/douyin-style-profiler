@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Awaitable, Callable, Dict, Iterable, List, Optional
 
 from .analyzer import analyze_video_items
-from .collector import collect_profile_topn, save_video_items
+from .collector import collect_profile_topn, load_video_items, save_video_items
 from .llm import LLMClient
 from .media import collect_and_download_profile, download_video_items, transcribe_video_items
 from .reports import write_outputs
@@ -57,6 +57,9 @@ async def run_profile_pipeline(
     transcribe: bool = True,
     keep_video: bool = True,
     max_concurrency: int = 3,
+    resume: bool = False,
+    sample_limit: int = 0,
+    min_transcript_chars: int = 0,
     collector: Optional[Collector] = None,
     downloader: Optional[Downloader] = None,
     transcriber: Optional[Transcriber] = None,
@@ -65,7 +68,20 @@ async def run_profile_pipeline(
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)
 
-    if download and collector is None and downloader is None:
+    profile_videos_path = str(root / "profile_videos.json")
+    transcripts_path = str(root / "transcripts.json")
+
+    if resume and Path(transcripts_path).exists():
+        items = load_video_items(transcripts_path)
+        if not Path(profile_videos_path).exists():
+            profile_videos_path = save_video_items(items, root / "profile_videos.json")
+    elif resume and Path(profile_videos_path).exists():
+        items = load_video_items(profile_videos_path)
+        if transcribe:
+            active_transcriber = transcriber or transcribe_video_items
+            items = active_transcriber(items)
+        transcripts_path = write_transcripts(items, root / "transcripts.json")
+    elif download and collector is None and downloader is None:
         full_result = await _default_full_collector(
             profile_url,
             top_n,
@@ -80,6 +96,11 @@ async def run_profile_pipeline(
         blogger = full_result.get("blogger") or {}
         if isinstance(blogger, dict) and blogger.get("nickname") and nickname == "对标账号":
             nickname = str(blogger["nickname"])
+        profile_videos_path = save_video_items(items, root / "profile_videos.json")
+        if transcribe:
+            active_transcriber = transcriber or transcribe_video_items
+            items = active_transcriber(items)
+        transcripts_path = write_transcripts(items, root / "transcripts.json")
     else:
         active_collector = collector or collect_profile_topn
         items = await active_collector(profile_url, top_n, storage_state_path, headless)
@@ -95,12 +116,11 @@ async def run_profile_pipeline(
                     max_concurrency=max_concurrency,
                 )
 
-    profile_videos_path = save_video_items(items, root / "profile_videos.json")
-
-    if transcribe:
-        active_transcriber = transcriber or transcribe_video_items
-        items = active_transcriber(items)
-    transcripts_path = write_transcripts(items, root / "transcripts.json")
+        profile_videos_path = save_video_items(items, root / "profile_videos.json")
+        if transcribe:
+            active_transcriber = transcriber or transcribe_video_items
+            items = active_transcriber(items)
+        transcripts_path = write_transcripts(items, root / "transcripts.json")
 
     usable_items = [item for item in items if (item.transcript or "").strip()]
     if not usable_items:
@@ -110,6 +130,8 @@ async def run_profile_pipeline(
         nickname=nickname,
         source_url=profile_url,
         llm_client=llm_client,
+        sample_limit=sample_limit,
+        min_transcript_chars=min_transcript_chars,
     )
     outputs = write_outputs(profile, root)
     return {

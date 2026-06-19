@@ -1,9 +1,9 @@
 import json
 import unittest
 
-from douyin_style_profiler.analyzer import analyze_style, parse_llm_style_profile
+from douyin_style_profiler.analyzer import analyze_style, analyze_video_items, parse_llm_style_profile
 from douyin_style_profiler.reports import render_markdown_report
-from douyin_style_profiler.schemas import STYLE_MODULE_KEYS
+from douyin_style_profiler.schemas import STYLE_MODULE_KEYS, VideoItem
 
 
 SAMPLE_TRANSCRIPTS = [
@@ -35,6 +35,32 @@ class StyleAnalyzerTest(unittest.TestCase):
         self.assertIn("## 1. 开头钩子", markdown)
         self.assertIn("## 10. 生成建议", markdown)
         self.assertIn("## 可复制风格提示词", markdown)
+
+    def test_analyze_video_items_filters_and_limits_samples(self):
+        profile = analyze_video_items(
+            [
+                VideoItem(url="https://example.com/1", title="短", transcript="太短"),
+                VideoItem(url="https://example.com/2", title="长样本一", transcript="第一条足够长的转写内容，适合进入分析。"),
+                VideoItem(url="https://example.com/3", title="长样本二", transcript="第二条足够长的转写内容，也适合进入分析。"),
+            ],
+            nickname="样本号",
+            sample_limit=1,
+            min_transcript_chars=10,
+        )
+
+        self.assertEqual(profile.sample_count, 1)
+        self.assertEqual(profile.samples[0]["title"], "长样本一")
+
+    def test_render_markdown_report_contains_sample_details(self):
+        profile = analyze_video_items(
+            [VideoItem(url="https://example.com/1", title="长样本一", transcript="第一条足够长的转写内容，适合进入分析。")],
+            nickname="样本号",
+            min_transcript_chars=10,
+        )
+        markdown = render_markdown_report(profile)
+
+        self.assertIn("## 样本明细", markdown)
+        self.assertIn("长样本一", markdown)
 
     def test_parse_llm_style_profile_allows_missing_modules(self):
         partial_json = json.dumps(
