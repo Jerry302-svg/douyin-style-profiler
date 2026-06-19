@@ -82,7 +82,8 @@ LLM_BASE_URL=
 | `qwen` | 通义千问 DashScope OpenAI-compatible 模式 |
 | `kimi` / `moonshot` | Moonshot / Kimi |
 | `zhipu` | 智谱 BigModel |
-| `minimax` | MiniMax |
+| `minimax` | MiniMax 全球端点 `https://api.minimax.io` |
+| `minimax-cn` | MiniMax 国内端点 `https://api.minimaxi.com`，适合国内区订阅 Key |
 | `anthropic` | Claude Messages API |
 | `gemini` | Gemini GenerateContent API |
 | `openai-compatible` | 任意兼容 `/v1/chat/completions` 的平台或私有网关 |
@@ -93,6 +94,14 @@ LLM_BASE_URL=
 LLM_PROVIDER=deepseek
 LLM_MODEL=deepseek-chat
 LLM_API_KEY=你的key
+```
+
+MiniMax 国内区订阅 Key 建议这样填：
+
+```text
+LLM_PROVIDER=minimax-cn
+LLM_MODEL=MiniMax-M3
+LLM_API_KEY=你的订阅key
 ```
 
 自定义 OpenAI-compatible 网关：

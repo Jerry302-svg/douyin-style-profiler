@@ -18,6 +18,7 @@ OPENAI_COMPATIBLE_PROVIDERS = {
     "moonshot": "https://api.moonshot.cn",
     "zhipu": "https://open.bigmodel.cn/api/paas",
     "minimax": "https://api.minimax.io",
+    "minimax-cn": "https://api.minimaxi.com",
 }
 
 NATIVE_PROVIDERS = {
@@ -133,7 +134,7 @@ class LLMClient:
             return self._build_gemini_request(messages, temperature, max_tokens)
         raise ValueError(
             f"不支持的 LLM_PROVIDER: {self.config.provider}。"
-            "可用值：openai, openai-compatible, deepseek, qwen, kimi, zhipu, minimax, anthropic, gemini"
+            "可用值：openai, openai-compatible, deepseek, qwen, kimi, zhipu, minimax, minimax-cn, anthropic, gemini"
         )
 
     def _build_openai_compatible_request(
@@ -154,7 +155,7 @@ class LLMClient:
             payload["max_completion_tokens"] = max_tokens
         else:
             payload["max_tokens"] = max_tokens
-        if provider == "minimax":
+        if provider in {"minimax", "minimax-cn"}:
             payload["thinking"] = {"type": "disabled"}
         return LLMRequest(
             provider=provider,
