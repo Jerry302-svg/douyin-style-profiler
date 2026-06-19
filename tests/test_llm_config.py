@@ -69,6 +69,14 @@ class LLMConfigTest(unittest.TestCase):
         self.assertEqual(req.payload["contents"][0]["parts"][0]["text"], "hi")
         self.assertEqual(req.payload["generationConfig"]["maxOutputTokens"], 200)
 
+    def test_minimax_uses_current_openai_compatible_endpoint_and_disables_thinking(self):
+        client = LLMClient(provider="minimax", model="MiniMax-M3", api_key="key")
+
+        req = client._build_request([{"role": "user", "content": "hi"}], temperature=0.1, max_tokens=100)
+
+        self.assertEqual(req.url, "https://api.minimax.io/v1/chat/completions")
+        self.assertEqual(req.payload["thinking"], {"type": "disabled"})
+
     def test_provider_presets_include_mainstream_models(self):
         presets = provider_presets()
 
