@@ -32,6 +32,10 @@ class StyleAnalyzerTest(unittest.TestCase):
         markdown = render_markdown_report(profile)
 
         self.assertIn("# 测试账号 风格分析报告", markdown)
+        self.assertIn("## 快速复刻清单", markdown)
+        self.assertLess(markdown.index("## 快速复刻清单"), markdown.index("## 1. 开头钩子"))
+        self.assertIn("- **钩子**：", markdown)
+        self.assertIn("- **先做**：", markdown)
         self.assertIn("## 1. 开头钩子", markdown)
         self.assertIn("## 10. 生成建议", markdown)
         self.assertIn("## 可复制风格提示词", markdown)

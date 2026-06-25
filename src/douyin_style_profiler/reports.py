@@ -30,6 +30,8 @@ def render_markdown_report(profile: StyleProfile) -> str:
         f"- 一句话总结：{profile.summary}",
         "",
     ]
+    lines.extend(_render_quick_replication_checklist(profile))
+    lines.append("")
     data = profile.to_dict()
     for key, title in SECTION_TITLES:
         lines.extend([f"## {title}", ""])
@@ -67,6 +69,19 @@ def render_style_prompt(profile: StyleProfile) -> str:
         f"互动引导：{_compact(profile.cta)}\n"
         f"生成建议：{'；'.join(profile.generation_tips[:8])}"
     )
+
+
+def _render_quick_replication_checklist(profile: StyleProfile) -> list[str]:
+    tips = profile.generation_tips[:3]
+    return [
+        "## 快速复刻清单",
+        "",
+        f"- **钩子**：{_first_compact(profile.hook, ['common_patterns', 'pattern', 'text', 'templates'])}",
+        f"- **结构**：{_first_compact(profile.content_structure, ['pattern', 'type', 'rhythm', 'text', 'stages'])}",
+        f"- **口吻**：{_first_compact(profile.expression_style, ['sentence', 'sentence_length', 'tone', 'text'])}",
+        f"- **互动**：{_first_compact(profile.cta, ['primary', 'pattern', 'common_forms', 'text'])}",
+        f"- **先做**：{_compact(tips) if tips else '先复刻开头钩子、三段结构和结尾互动，不复制原事实。'}",
+    ]
 
 
 def write_outputs(profile: StyleProfile, output_dir: str | Path) -> Dict[str, str]:
@@ -136,6 +151,31 @@ def _compact(value: Any) -> str:
     if isinstance(value, list):
         return "、".join(_compact(item) for item in value)
     return str(value)
+
+
+def _first_compact(data: Dict[str, Any], preferred_keys: list[str]) -> str:
+    if not data:
+        return "未提取到稳定模式"
+    for key in preferred_keys:
+        value = data.get(key)
+        if _has_content(value):
+            return _short_text(_compact(value), limit=120)
+    for value in data.values():
+        if _has_content(value):
+            return _short_text(_compact(value), limit=120)
+    return "未提取到稳定模式"
+
+
+def _has_content(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_content(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_content(item) for item in value)
+    return True
 
 
 def _is_complex(value: Any) -> bool:
