@@ -213,6 +213,92 @@ class MediaPipelineTest(unittest.TestCase):
             self.assertEqual(profile["samples"][0]["title"], "有效样本一")
             self.assertEqual(profile["samples"][0]["transcript_chars"], len("这是第一条足够长的转写内容，用于分析账号表达节奏。"))
 
+    def test_run_profile_pipeline_resume_transcribes_only_missing_items_and_writes_manifest(self):
+        from douyin_style_profiler.pipeline import run_profile_pipeline
+
+        async def forbidden_collector(*args, **kwargs):
+            raise AssertionError("resume should reuse existing files")
+
+        def fake_transcriber(items):
+            items = list(items)
+            self.assertEqual([item.title for item in items], ["失败样本"])
+            for item in items:
+                item.transcript = "失败样本重新转写成功，这是一段足够长的转写内容。"
+                item.metadata["transcribe_status"] = "success"
+                item.metadata.pop("transcribe_error", None)
+            return items
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile_videos.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "url": "https://www.douyin.com/video/1",
+                            "title": "成功样本",
+                            "transcript": "",
+                            "metadata": {"audio_path": str(root / "1.mp3")},
+                        },
+                        {
+                            "url": "https://www.douyin.com/video/2",
+                            "title": "失败样本",
+                            "transcript": "",
+                            "metadata": {"audio_path": str(root / "2.mp3")},
+                        },
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (root / "transcripts.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "url": "https://www.douyin.com/video/1",
+                            "title": "成功样本",
+                            "transcript": "成功样本已有足够长的转写内容，可以直接复用。",
+                            "metadata": {"transcribe_status": "success", "audio_path": str(root / "1.mp3")},
+                        },
+                        {
+                            "url": "https://www.douyin.com/video/2",
+                            "title": "失败样本",
+                            "transcript": "",
+                            "metadata": {
+                                "transcribe_status": "failed",
+                                "transcribe_error": "previous failure",
+                                "audio_path": str(root / "2.mp3"),
+                            },
+                        },
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            outputs = asyncio.run(
+                run_profile_pipeline(
+                    profile_url="https://v.douyin.com/example/",
+                    nickname="测试账号",
+                    top_n=2,
+                    storage_state_path=root / "state.json",
+                    output_dir=root,
+                    llm_client=None,
+                    resume=True,
+                    collector=forbidden_collector,
+                    transcriber=fake_transcriber,
+                    min_transcript_chars=10,
+                )
+            )
+
+            transcripts = json.loads(Path(outputs["transcripts"]).read_text(encoding="utf-8"))
+            manifest = json.loads(Path(outputs["manifest"]).read_text(encoding="utf-8"))
+
+            self.assertEqual(transcripts[0]["transcript"], "成功样本已有足够长的转写内容，可以直接复用。")
+            self.assertEqual(transcripts[1]["metadata"]["transcribe_status"], "success")
+            self.assertEqual(manifest["stages"]["transcribe"]["reused"], 1)
+            self.assertEqual(manifest["stages"]["transcribe"]["retried"], 1)
+            self.assertEqual(manifest["items"][1]["transcribe_status"], "success")
+
 
 if __name__ == "__main__":
     unittest.main()

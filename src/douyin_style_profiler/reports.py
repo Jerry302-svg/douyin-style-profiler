@@ -46,6 +46,13 @@ def render_markdown_report(profile: StyleProfile) -> str:
             chars = sample.get("transcript_chars", 0)
             source = "转写稿" if sample.get("has_transcript") else "标题/描述"
             lines.append(f"- {title}（{source}，{chars} 字）：{url}")
+            credibility = sample.get("credibility") or "未评级"
+            evidence_source = sample.get("evidence_source") or source
+            quality_score = sample.get("quality_score")
+            score_text = f"，质量分：{quality_score}" if quality_score is not None else ""
+            notes = sample.get("quality_notes") or []
+            notes_text = f"，说明：{_compact(notes)}" if notes else ""
+            lines.append(f"  - 可信度：{credibility}；证据：{evidence_source}{score_text}{notes_text}")
             preview = sample.get("preview") or sample.get("transcript_preview") or ""
             if preview:
                 lines.append(f"  - 预览：{preview}")

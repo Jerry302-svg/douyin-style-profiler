@@ -64,12 +64,14 @@ def select_analysis_samples(
     selected = [video for video in candidates if len((video.transcript or video.title or "").strip()) >= min_chars]
     if not selected:
         selected = candidates
+    selected = sorted(selected, key=lambda item: _sample_quality_score(item) // 20, reverse=True)
     if limit:
         selected = selected[:limit]
     samples = []
     for index, video in enumerate(selected, 1):
         transcript = (video.transcript or "").strip()
         text = transcript or (video.title or "").strip()
+        quality_score, quality_notes = _sample_quality_details(video)
         samples.append(
             {
                 "index": index,
@@ -78,9 +80,57 @@ def select_analysis_samples(
                 "transcript_chars": len(text),
                 "has_transcript": bool(transcript),
                 "preview": _preview_text(text),
+                "quality_score": quality_score,
+                "quality_notes": quality_notes,
+                "credibility": _sample_credibility(quality_score, bool(transcript)),
+                "evidence_source": "完整转写" if transcript else "标题/描述",
             }
         )
     return selected, samples
+
+
+def _sample_quality_details(video: VideoItem) -> tuple[int, List[str]]:
+    transcript = (video.transcript or "").strip()
+    text = transcript or (video.title or "").strip()
+    metadata = video.metadata or {}
+    try:
+        comment_count = int(metadata.get("comment_count") or metadata.get("comments") or 0)
+    except (TypeError, ValueError):
+        comment_count = 0
+    score = min(len(text), 240) // 4
+    notes: List[str] = []
+    if transcript:
+        score += 80
+        notes.append("完整转写")
+    else:
+        score += 20
+        notes.append("标题/描述")
+    if len(text) >= 80:
+        score += 12
+        notes.append("文本较长")
+    elif not transcript and len(text) < 20:
+        score -= 8
+        notes.append("文本偏短")
+    if video.like_count:
+        score += min(int(video.like_count), 10000) // 1000
+    if comment_count:
+        score += min(comment_count, 300) // 10
+        notes.append("评论互动较高")
+    return max(0, int(score)), notes
+
+
+def _sample_quality_score(video: VideoItem) -> int:
+    return _sample_quality_details(video)[0]
+
+
+def _sample_credibility(score: int, has_transcript: bool) -> str:
+    if has_transcript and score >= 95:
+        return "高"
+    if has_transcript:
+        return "中高"
+    if score >= 45:
+        return "中"
+    return "低"
 
 
 def build_style_prompt(transcripts: List[str], nickname: str, source_url: str = "") -> List[Dict[str, str]]:

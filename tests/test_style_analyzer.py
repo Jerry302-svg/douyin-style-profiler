@@ -55,6 +55,31 @@ class StyleAnalyzerTest(unittest.TestCase):
         self.assertEqual(profile.sample_count, 1)
         self.assertEqual(profile.samples[0]["title"], "长样本一")
 
+    def test_analyze_video_items_prioritizes_high_quality_transcript_samples(self):
+        profile = analyze_video_items(
+            [
+                VideoItem(
+                    url="https://example.com/1",
+                    title="标题样本",
+                    transcript="",
+                    like_count=9999,
+                ),
+                VideoItem(
+                    url="https://example.com/2",
+                    title="完整转写样本",
+                    transcript="这是一条有完整转写、长度更足、适合分析表达节奏和内容结构的高质量样本。",
+                    like_count=10,
+                    metadata={"comment_count": 120},
+                ),
+            ],
+            nickname="样本号",
+            sample_limit=1,
+        )
+
+        self.assertEqual(profile.samples[0]["title"], "完整转写样本")
+        self.assertGreater(profile.samples[0]["quality_score"], 0)
+        self.assertIn("完整转写", profile.samples[0]["quality_notes"])
+
     def test_render_markdown_report_contains_sample_details(self):
         profile = analyze_video_items(
             [VideoItem(url="https://example.com/1", title="长样本一", transcript="第一条足够长的转写内容，适合进入分析。")],
@@ -66,6 +91,8 @@ class StyleAnalyzerTest(unittest.TestCase):
         self.assertIn("## 样本明细", markdown)
         self.assertIn("长样本一", markdown)
         self.assertIn("[打开原视频](https://example.com/1)", markdown)
+        self.assertIn("可信度：", markdown)
+        self.assertIn("证据：", markdown)
         self.assertNotIn("：https://example.com/1", markdown)
 
     def test_render_markdown_report_formats_nested_values_and_sample_preview(self):

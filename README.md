@@ -10,9 +10,12 @@
 - 内置抖音下载层：`DouyinAPIClient + X-Bogus + Top10 + 视频下载 + ffmpeg 抽音频`。
 - 用 FunASR 自动转写音频，并做本地标点恢复和繁体转简体。
 - 根据转写稿生成 10 个风格模块。
+- 自动给分析样本打质量分，优先使用完整转写、文本更充分、互动信号更强的样本。
+- 生成样本证据、可信度和断点续跑 manifest，方便判断报告质量和失败恢复状态。
 - 输出：
   - `profile_videos.json`
   - `transcripts.json`
+  - `run_manifest.json`
   - `style_profile.json`
   - `style_report.md`
   - `style_prompt.txt`
@@ -204,6 +207,8 @@ python -m douyin_style_profiler run \
   --llm
 ```
 
+`--resume` 会优先复用已有成功转写；如果 `transcripts.json` 里有单条视频转写失败，但仍保留了音频路径，工具会只重试失败/缺失的条目。每次运行还会写入 `run_manifest.json`，记录采集、下载、转写的复用数、重试数和单条状态。
+
 也可以控制参与分析的样本数量和最短文本长度：
 
 ```bash
@@ -214,7 +219,7 @@ python -m douyin_style_profiler analyze \
   --llm
 ```
 
-生成的 Markdown 报告会包含“样本明细”，方便确认哪些视频或标题真正进入了分析。
+生成的 Markdown 报告会包含“样本明细”，展示每条样本的证据来源、质量分和可信度，方便确认哪些视频或标题真正进入了分析。
 
 ## 环境自检
 
@@ -238,6 +243,7 @@ python -m douyin_style_profiler doctor --skip-transcription
 outputs/
   profile_videos.json
   transcripts.json
+  run_manifest.json
   style_profile.json
   style_report.md
   style_prompt.txt
